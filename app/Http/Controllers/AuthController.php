@@ -185,30 +185,39 @@ class AuthController extends Controller
     }
 
     // ============================================================
-    // LOGOUT UNIVERSAL (MULTI-GUARD)
+    // PERBAIKAN: LOGOUT UNIVERSAL (MULTI-GUARD) YANG OPTIMAL
     // ============================================================
 
     public function logout(Request $request)
     {
-        $redirectRoute = 'home';
+        // 1. Deteksi "Guard" mana yang sedang aktif SAAT tombol ditekan
+        $isSuperadmin = Auth::guard('superadmin')->check();
+        $isMitra      = Auth::guard('mitra')->check();
+        $isWeb        = Auth::guard('web')->check();
 
-        if (Auth::guard('superadmin')->check()) {
+        // 2. Lakukan proses pengeluaran (logout) pada akun yang terdeteksi
+        if ($isSuperadmin) {
             Auth::guard('superadmin')->logout();
-            $redirectRoute = 'superadmin.login';
-        } 
-        elseif (Auth::guard('mitra')->check()) {
+        }
+        if ($isMitra) {
             Auth::guard('mitra')->logout();
-            $redirectRoute = 'mitra.login';
-        } 
-        elseif (Auth::guard('web')->check()) {
+        }
+        if ($isWeb) {
             Auth::guard('web')->logout();
-            $redirectRoute = 'home';
         }
 
+        // 3. Bersihkan seluruh sisa memori sesi di browser untuk keamanan mutlak
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route($redirectRoute)->with('success', 'Anda telah berhasil logout.');
+        // 4. Lakukan pengalihan (Redirect) ke "Pintu Keluar" yang benar
+        if ($isSuperadmin) {
+            return redirect()->route('superadmin.login')->with('success', 'Anda berhasil keluar dari Panel Superadmin.');
+        } elseif ($isMitra) {
+            return redirect()->route('mitra.login')->with('success', 'Anda berhasil keluar dari Dasbor Mitra.');
+        } else {
+            return redirect('/')->with('success', 'Anda telah berhasil keluar.');
+        }
     }
 
     // ============================================================

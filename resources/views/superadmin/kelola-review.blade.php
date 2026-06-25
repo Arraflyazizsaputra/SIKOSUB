@@ -42,9 +42,10 @@
     .txt-diskon { font-size: 10px; color: #FF0000; font-weight: 700; }
     .txt-coret { font-size: 10px; color: #aaa; text-decoration: line-through; font-weight: 600; }
     
-    /* Address */
-    .kost-address { font-size: 12px; color: #888; line-height: 1.5; }
-    .kost-address strong { color: #666; font-weight: 600; display: block; margin-bottom: 2px; }
+    /* Address (DIPERBAIKI) */
+    .kost-address { font-size: 13px; color: #6b7280; line-height: 1.5; }
+    .kost-address strong { color: #374151; font-weight: 800; display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 13px; }
+    .kost-address strong i { color: #ef4444; font-size: 14px; }
     
     /* Small Icons (WA, Maps) */
     .action-icons { position: absolute; bottom: 0; right: 0; display: flex; gap: 12px; }
@@ -63,7 +64,7 @@
 </style>
 
 <div class="content-wrapper">
-    <h1 class="page-title">Daftar Riview Kost</h1>
+    <h1 class="page-title">Daftar Review Kost</h1>
     <span class="page-subtitle">SIKOSUB</span>
 
     {{-- Menggunakan @forelse agar bisa menampilkan pesan jika data kosong --}}
@@ -98,15 +99,17 @@
             @endif
             
             <div class="kost-address">
-                <strong>Soklat</strong>
+                {{-- PERBAIKAN: Menambahkan ikon pin merah dan teks "Alamat Lokasi" --}}
+                <strong><i class="fa-solid fa-location-dot"></i> Alamat Lokasi</strong>
                 {{ $kost->alamat }}
             </div>
             
             <div class="action-icons">
-                <a href="https://wa.me/{{ $kost->no_wa }}" target="_blank" class="icon-circle icon-wa">
+                {{-- PERBAIKAN: Pesan WA diubah khusus untuk kapasitas Superadmin yang mengelola Review --}}
+                <a href="https://wa.me/{{ $kost->no_wa }}?text={{ urlencode('Halo Pemilik/Pengelola *' . $kost->nama_kost . '*, saya dari tim Admin SIKOSUB. Saya ingin berkomunikasi terkait ulasan (review) kost Anda di sistem kami.') }}" target="_blank" class="icon-circle icon-wa" title="Hubungi Pemilik Terkait Review">
                     <i class="fa-brands fa-whatsapp" style="font-size: 16px;"></i>
                 </a>
-                <a href="{{ $kost->maps }}" target="_blank" class="icon-circle icon-map">
+                <a href="{{ $kost->maps }}" target="_blank" class="icon-circle icon-map" title="Lihat Lokasi Maps">
                     <i class="fa-solid fa-location-dot" style="font-size: 14px;"></i>
                 </a>
             </div>

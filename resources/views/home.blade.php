@@ -15,7 +15,11 @@
 
     /* === HERO SECTION === */
     .hero-wrapper {
-        background: linear-gradient(135deg, #92d3fd 0%, #bde4ff 100%); 
+        /* Gradient diubah ke arah vertikal (atas ke bawah) dan diberi titik akhir
+           berwarna putih, supaya warna biru memudar mulus menyatu dengan
+           background putih dari konten di bawahnya (tidak ada garis pemisah
+           yang terlihat saat scroll). */
+        background: linear-gradient(180deg, #92d3fd 0%, #bde4ff 55%, #ffffff 100%); 
         padding: 60px 20px 120px;
         position: relative;
         font-family: 'Outfit', sans-serif;
@@ -158,7 +162,7 @@
         margin: 0 15px;
         opacity: 0.5;
         transform: scale(0.9);
-        transition: all 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+        transition: opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1), transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
         cursor: pointer;
         flex-shrink: 0;
     }
@@ -408,7 +412,10 @@
     .vm-icon { margin-bottom: 20px; }
     .vm-icon img { width: 60px; height: 60px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 50%; }
     .vm-card h4 { font-weight: 800; font-size: 1.2rem; margin-bottom: 15px; color: #000; letter-spacing: 0.5px; }
-    .vm-card p, .vm-card ol { font-size: 0.9rem; color: #4b5563; text-align: left; line-height: 1.7; margin: 0;}
+    
+    /* PERBAIKAN CSS: Menambahkan elemen div agar font dan format Misi tersinkron dengan Visi */
+    .vm-card p, .vm-card ol, .vm-card div { font-size: 0.9rem; color: #4b5563; text-align: left; line-height: 1.7; margin: 0;}
+    
     .vm-card ol { padding-left: 20px; }
     .vm-card ol li { margin-bottom: 8px; }
 
@@ -474,12 +481,12 @@
 
                 @if(!empty($banners))
                     @foreach($banners as $index => $banner)
-                        <img src="{{ asset('images/banners/' . $banner) }}" alt="Banner Promosi {{ $index }}" class="promo-item {{ $loop->first ? 'active' : '' }}">
+                        <img src="{{ asset('images/banners/' . $banner) }}" alt="Banner Promosi {{ $index }}" class="promo-item {{ $loop->first ? 'active' : '' }}" data-real-index="{{ $index }}">
                     @endforeach
                 @else
-                    <img src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80" alt="Default 1" class="promo-item active">
-                    <img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80" alt="Default 2" class="promo-item">
-                    <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80" alt="Default 3" class="promo-item">
+                    <img src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80" alt="Default 1" class="promo-item active" data-real-index="0">
+                    <img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80" alt="Default 2" class="promo-item" data-real-index="1">
+                    <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80" alt="Default 3" class="promo-item" data-real-index="2">
                 @endif
             </div>
         </div>
@@ -635,7 +642,8 @@
                 </div>
                 <h4>MISI</h4>
                 <div>
-                    {!! isset($landing->misi) && $landing->misi != '' ? $landing->misi : '<ol><li>Menyediakan fitur pencarian kos berdasarkan lokasi, harga, fasilitas, dan peruntukannya (putra/putri).</li><li>Menyediakan platform digital bagi pemilik kost untuk mempromosikan properti dan menjawab direct queries dari calon konsumen.</li><li>Memfasilitasi proses penyewaan yang secara digital dan menyediakan informasi properti yang transparan dan up-to-date.</li></ol>' !!}
+                    {{-- PERBAIKAN: Menambahkan fungsi nl2br(e()) untuk mengubah baris baru otomatis menjadi <br> --}}
+                    {!! isset($landing->misi) && $landing->misi != '' ? nl2br(e($landing->misi)) : '<ol><li>Menyediakan fitur pencarian kos berdasarkan lokasi, harga, fasilitas, dan peruntukannya (putra/putri).</li><li>Menyediakan platform digital bagi pemilik kost untuk mempromosikan properti dan menjawab direct queries dari calon konsumen.</li><li>Memfasilitasi proses penyewaan yang secara digital dan menyediakan informasi properti yang transparan dan up-to-date.</li></ol>' !!}
                 </div>
             </div>
         </div>
@@ -645,71 +653,185 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const track = document.getElementById('promo-track');
-    const images = Array.from(document.querySelectorAll('.promo-item'));
     const btnPrev = document.getElementById('prevBtn');
     const btnNext = document.getElementById('nextBtn');
-    
-    if(images.length > 0) {
-        let currentIndex = 0; 
+
+    // Ambil daftar gambar ASLI (sebelum ada clone apapun ditambahkan)
+    const originalImages = Array.from(track.querySelectorAll('.promo-item'));
+    const totalReal = originalImages.length;
+
+    if (totalReal > 0) {
+        const AUTOPLAY_DELAY = 3500;
+        const TRANSITION_DURATION = 600; // harus sama dengan durasi transition CSS (0.6s)
+
+        // ===================================================================
+        // STRATEGI INFINITE LOOP: clone slide pertama & terakhir
+        // ---------------------------------------------------------------
+        // Sebelumnya, saat geser dari slide terakhir ke pertama, index
+        // langsung "dipaksa" balik ke 0 sehingga track snap seketika tanpa
+        // animasi (terasa seperti lompat, bukan bergulir mulus).
+        //
+        // Solusinya: tambahkan duplikat (clone) slide pertama di AKHIR
+        // track, dan duplikat slide terakhir di AWAL track. Dengan begitu,
+        // geseran "maju terus" selalu punya slide visual untuk dituju —
+        // baik maju dari akhir maupun mundur dari awal. Setelah transisi ke
+        // clone selesai, posisi dipindahkan diam-diam (tanpa transisi) ke
+        // slide asli yang identik secara visual, sehingga mata tidak
+        // menyadari adanya "reset" sama sekali.
+        // ===================================================================
+
+        if (totalReal > 1) {
+            const firstClone = originalImages[0].cloneNode(true);
+            const lastClone = originalImages[totalReal - 1].cloneNode(true);
+            firstClone.classList.add('clone');
+            lastClone.classList.add('clone');
+            firstClone.classList.remove('active');
+            lastClone.classList.remove('active');
+
+            track.appendChild(firstClone);
+            track.insertBefore(lastClone, track.firstChild);
+        }
+
+        // Daftar lengkap elemen slide setelah clone ditambahkan (urutan DOM final)
+        const slides = Array.from(track.querySelectorAll('.promo-item'));
+
+        // Index posisi di dalam array `slides` (bukan index data asli).
+        // Jika ada clone, slide asli pertama berada di posisi 1 (karena
+        // posisi 0 diisi clone dari slide terakhir).
+        const offset = totalReal > 1 ? 1 : 0;
+        let currentPos = offset; // mulai di slide asli pertama
+        let isAnimating = false;
         let autoPlayInterval;
 
-        function updateCarousel() {
-            images.forEach(img => img.classList.remove('active'));
-            images[currentIndex].classList.add('active');
-            
-            const containerWidth = track.parentElement.clientWidth;
-            const isMobile = window.innerWidth <= 768;
-            const itemWidth = isMobile ? (window.innerWidth * 0.8) + 16 : 630; 
-            const centerPoint = containerWidth / 2;
-            const imageCenter = (currentIndex * itemWidth) + (isMobile ? 8 : 15) + (itemWidth / 2 - (isMobile ? 8 : 15)); 
-            const scrollPosition = imageCenter - centerPoint;
-            
-            track.style.transition = 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)';
-            track.style.transform = `translateX(-${scrollPosition}px)`;
+        function setActiveBySlide(slideEl) {
+            slides.forEach((s) => s.classList.remove('active'));
+            slideEl.classList.add('active');
+        }
+
+        function renderPosition(withTransition) {
+            const activeSlide = slides[currentPos];
+            setActiveBySlide(activeSlide);
+
+            requestAnimationFrame(() => {
+                const containerWidth = track.parentElement.clientWidth;
+
+                // Pusat slide aktif dihitung langsung dari DOM (offsetLeft + setengah
+                // lebar), sehingga selalu akurat di semua ukuran layar tanpa hardcode.
+                const imageCenter = activeSlide.offsetLeft + activeSlide.offsetWidth / 2;
+                const centerPoint = containerWidth / 2;
+                const scrollPosition = imageCenter - centerPoint;
+
+                track.style.transition = withTransition
+                    ? `transform ${TRANSITION_DURATION}ms cubic-bezier(0.25, 1, 0.5, 1)`
+                    : 'none';
+                track.style.transform = `translateX(-${scrollPosition}px)`;
+            });
+        }
+
+        function goToPos(newPos, withTransition = true) {
+            if (isAnimating) return;
+            isAnimating = true;
+            currentPos = newPos;
+            renderPosition(withTransition);
+
+            setTimeout(() => {
+                // Setelah transisi selesai, jika kita mendarat di sebuah CLONE,
+                // pindahkan diam-diam (tanpa transisi) ke slide ASLI yang sama
+                // secara visual. Browser tidak akan terlihat "reset" karena
+                // gambar di posisi clone & posisi asli identik.
+                if (totalReal > 1) {
+                    if (currentPos === slides.length - 1) {
+                        // Mendarat di clone slide pertama (paling kanan) → lompat diam-diam ke slide asli pertama
+                        currentPos = offset;
+                        renderPosition(false);
+                    } else if (currentPos === 0) {
+                        // Mendarat di clone slide terakhir (paling kiri) → lompat diam-diam ke slide asli terakhir
+                        currentPos = slides.length - 1 - 1;
+                        renderPosition(false);
+                    }
+                }
+                isAnimating = false;
+            }, TRANSITION_DURATION);
         }
 
         function nextSlide() {
-            if (currentIndex >= images.length - 1) {
-                currentIndex = 0;
-            } else {
-                currentIndex++;
-            }
-            updateCarousel();
+            goToPos(currentPos + 1);
         }
 
         function prevSlide() {
-            if (currentIndex <= 0) {
-                currentIndex = images.length - 1;
-            } else {
-                currentIndex--;
-            }
-            updateCarousel();
+            goToPos(currentPos - 1);
         }
 
-        updateCarousel();
-        autoPlayInterval = setInterval(nextSlide, 3500);
+        function startAutoPlay() {
+            stopAutoPlay();
+            if (totalReal > 1) {
+                autoPlayInterval = setInterval(nextSlide, AUTOPLAY_DELAY);
+            }
+        }
+
+        function stopAutoPlay() {
+            if (autoPlayInterval) clearInterval(autoPlayInterval);
+        }
+
+        // Render posisi awal setelah semua gambar (termasuk clone) selesai dimuat,
+        // supaya offsetLeft/offsetWidth akurat sejak pertama kali tampil.
+        let imagesLoaded = 0;
+        const totalSlides = slides.length;
+        function onAnyImageReady() {
+            imagesLoaded++;
+            if (imagesLoaded === totalSlides) {
+                renderPosition(false);
+            }
+        }
+        slides.forEach((img) => {
+            if (img.complete) {
+                onAnyImageReady();
+            } else {
+                img.addEventListener('load', onAnyImageReady);
+                img.addEventListener('error', onAnyImageReady);
+            }
+        });
+        // Fallback jika event load tidak terpicu (misalnya gambar dari cache)
+        renderPosition(false);
+
+        startAutoPlay();
 
         btnNext.addEventListener('click', () => {
-            clearInterval(autoPlayInterval);
+            stopAutoPlay();
             nextSlide();
-            autoPlayInterval = setInterval(nextSlide, 3500);
+            startAutoPlay();
         });
 
         btnPrev.addEventListener('click', () => {
-            clearInterval(autoPlayInterval);
+            stopAutoPlay();
             prevSlide();
-            autoPlayInterval = setInterval(nextSlide, 3500);
+            startAutoPlay();
         });
-        
-        window.addEventListener('resize', updateCarousel);
-        
-        images.forEach((img, index) => {
+
+        slides.forEach((img, pos) => {
             img.addEventListener('click', () => {
-                clearInterval(autoPlayInterval);
-                currentIndex = index;
-                updateCarousel();
-                autoPlayInterval = setInterval(nextSlide, 3500);
+                if (pos === currentPos) return;
+                stopAutoPlay();
+                goToPos(pos);
+                startAutoPlay();
             });
+        });
+
+        // Hindari perhitungan ulang yang terlalu sering saat resize (debounce)
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => renderPosition(false), 150);
+        });
+
+        // Pause autoplay saat tab tidak aktif, supaya tidak ada lonjakan animasi
+        // yang terasa "patah" ketika tab dibuka kembali.
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                stopAutoPlay();
+            } else {
+                startAutoPlay();
+            }
         });
     }
 });

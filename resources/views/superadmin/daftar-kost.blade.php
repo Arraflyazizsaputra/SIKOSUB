@@ -97,7 +97,8 @@
             </div>
             
             <div class="action-icons">
-                <a href="https://wa.me/{{ $kost->no_wa }}" target="_blank" class="icon-circle icon-wa" title="Hubungi Pemilik">
+                {{-- PERBAIKAN: Pesan WA diubah khusus untuk kapasitas Superadmin yang mengelola data properti --}}
+                <a href="https://wa.me/{{ $kost->no_wa }}?text={{ urlencode('Halo Pemilik/Pengelola *' . $kost->nama_kost . '*, saya dari tim Admin SIKOSUB. Saya ingin berkomunikasi terkait data properti kost Anda yang terdaftar di sistem kami.') }}" target="_blank" class="icon-circle icon-wa" title="Hubungi Pemilik Terkait Data Kost">
                     <i class="fa-brands fa-whatsapp"></i>
                 </a>
                 <a href="{{ $kost->maps }}" target="_blank" class="icon-circle icon-map" title="Lihat di Maps">
