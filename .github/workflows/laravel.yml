@@ -1,0 +1,55 @@
+name: SIKOSUB Test Suite
+
+on:
+  push:
+    branches: [ "master", "development" ]
+  pull_request:
+    branches: [ "master", "development" ]
+
+jobs:
+  sikosub-tests:
+    runs-on: ubuntu-latest
+
+    # Menyalakan Server MySQL Otomatis di GitHub
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: sikosub_db
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2' # Versi PHP SIKOSUB
+
+    - name: Copy .env Configuration
+      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+
+    - name: Set Environment ke MySQL CI/CD
+      run: |
+        sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=mysql/' .env
+        sed -i 's/DB_HOST=.*/DB_HOST=127.0.0.1/' .env
+        sed -i 's/DB_PORT=.*/DB_PORT=3306/' .env
+        sed -i 's/DB_DATABASE=.*/DB_DATABASE=sikosub_db/' .env
+        sed -i 's/DB_USERNAME=.*/DB_USERNAME=root/' .env
+        sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=/' .env
+
+    - name: Install Dependencies (Composer)
+      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+    - name: Generate App Key
+      run: php artisan key:generate
+
+    - name: Import Database SIKOSUB SQL
+      # Robot akan meng-import file sql Anda agar ada isinya saat di-test
+      run: mysql -h 127.0.0.1 -P 3306 -u root sikosub_db < database/sikosub_db.sql
+
+    - name: Execute Tests (Uji Seluruh Sistem)
+      run: php artisan test
